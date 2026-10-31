@@ -101,16 +101,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : initialMessages;
   });
 
-  // Current logged in user (Default to a demo visitor, or author)
+  // Current logged in user (strictly starts as null - NO fake user!)
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
-    const saved = localStorage.getItem('author_current_user');
-    return saved ? JSON.parse(saved) : {
-      id: 'demo-reader',
-      name: 'Rahman Hasan',
-      email: 'rahman.hasan.bd@gmail.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rahman',
-      isAdmin: false
-    };
+    try {
+      const saved = localStorage.getItem('author_current_user');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (!parsed || parsed.id === 'demo-reader' || parsed.email === 'rahman.hasan.bd@gmail.com') {
+          localStorage.removeItem('author_current_user');
+          return null;
+        }
+        return parsed;
+      }
+    } catch {
+      localStorage.removeItem('author_current_user');
+    }
+    return null;
   });
 
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
@@ -209,31 +215,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('author_is_admin', isAdmin ? 'true' : 'false');
   }, [isAdmin]);
 
-  const loginWithGoogle = (customEmail?: string, customName?: string) => {
-    const email = customEmail || 'jayedmahmud18@gmail.com';
-    const name = customName || (email === 'jayedmahmud18@gmail.com' ? 'Jayed Mahmud (Author)' : email.split('@')[0]);
-    const userIsAdmin = email.toLowerCase() === 'jayedmahmud18@gmail.com';
+  const loginWithGoogle = (emailInput?: string, nameInput?: string) => {
+    const rawEmail = (emailInput || 'jayedmahmud18@gmail.com').trim();
+    const email = rawEmail.toLowerCase();
+
+    // Determine name
+    let name = nameInput?.trim();
+    if (!name) {
+      if (email === 'jayedmahmud18@gmail.com') {
+        name = 'Jayed Mahmud (Author)';
+      } else {
+        const handle = email.split('@')[0];
+        name = handle.charAt(0).toUpperCase() + handle.slice(1);
+      }
+    }
+
+    const userIsAdmin = email === 'jayedmahmud18@gmail.com';
 
     const newUser: AuthUser = {
       id: 'usr-' + Date.now(),
       name,
-      email,
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`,
+      email: rawEmail,
+      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=fbbf24`,
       isAdmin: userIsAdmin
     };
 
     setCurrentUser(newUser);
+    localStorage.setItem('author_current_user', JSON.stringify(newUser));
+
     if (userIsAdmin) {
       setIsAdmin(true);
+      localStorage.setItem('author_is_admin', 'true');
+      showToast(`Signed in as Jayed Mahmud! Author Admin Mode enabled.`);
+    } else {
+      showToast(`Signed in with Google as ${name} (${rawEmail})`);
     }
+
     setAuthModalOpen(false);
-    showToast(`Signed in with Google as ${name}`);
   };
 
   const logout = () => {
     setCurrentUser(null);
     setIsAdmin(false);
-    showToast('Signed out successfully');
+    localStorage.removeItem('author_current_user');
+    localStorage.removeItem('author_is_admin');
+    showToast('Signed out from Google account');
   };
 
   const toggleAdminMode = (overrideAdmin?: boolean) => {

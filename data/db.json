@@ -150,28 +150,14 @@
   "requests": [
     {
       "id": "req-1",
-      "bookId": "book-1",
-      "bookTitle": "Feel-Good Focus",
-      "bookCoverUrl": "/src/assets/images/cover_productivity_mastery_1793435132456.jpg",
-      "userId": "user-rahman",
-      "userName": "Rahman Hasan",
-      "userEmail": "rahman.hasan.bd@gmail.com",
-      "bkashNumber": "01819-234567 (TrxID: 9M8K2LQ4)",
-      "description": "Sent ৳250 via bKash personal around 4:30 PM. Really excited to read Chapter 2!",
-      "status": "approved",
-      "createdAt": "2026-10-28T10:30:00Z",
-      "updatedAt": "2026-10-28T11:15:00Z"
-    },
-    {
-      "id": "req-2",
       "bookId": "book-2",
       "bookTitle": "The Creator's Blueprint",
       "bookCoverUrl": "/src/assets/images/cover_digital_creator_playbook_1793435132635.jpg",
       "userId": "user-tanvir",
       "userName": "Tanvir Ahmed",
-      "userEmail": "tanvir.codes@gmail.com",
+      "userEmail": "tanvir.creator@gmail.com",
       "bkashNumber": "01711-987654 (TrxID: 8KL01P2X)",
-      "description": "Paid ৳320 via bKash merchant. Please approve my access.",
+      "description": "Paid ৳320 via bKash. Please approve my access.",
       "status": "pending",
       "createdAt": "2026-10-30T14:20:00Z",
       "updatedAt": "2026-10-30T14:20:00Z"
@@ -182,13 +168,13 @@
       "id": "rev-1",
       "bookId": "book-1",
       "bookTitle": "Feel-Good Focus",
-      "userId": "user-rahman",
-      "userName": "Rahman Hasan",
-      "userEmail": "rahman.hasan.bd@gmail.com",
+      "userId": "user-nafisa",
+      "userName": "Nafisa Kamal",
+      "userEmail": "nafisa.kamal.design@gmail.com",
       "rating": 5,
-      "comment": "This book completely transformed how I structure my morning work blocks. The play paradigm idea made me fall in love with coding again without burning out.",
+      "comment": "This book completely transformed how I structure my morning work blocks. Short, punchy, and deeply actionable. 10/10 recommendation!",
       "status": "approved",
-      "createdAt": "2026-10-29T16:00:00Z"
+      "createdAt: "2026-10-27T12:45:00Z"
     },
     {
       "id": "rev-2",
