@@ -9,7 +9,8 @@ export const ReviewSubmitModal: React.FC = () => {
     books,
     requests,
     currentUser,
-    submitReview
+    submitReview,
+    showToast
   } = useApp();
 
   const [rating, setRating] = useState<number>(5);
@@ -34,7 +35,7 @@ export const ReviewSubmitModal: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!comment.trim()) {
-      alert('Please write your review thoughts.');
+      showToast('Please write your review thoughts.');
       return;
     }
 

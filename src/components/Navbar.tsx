@@ -59,11 +59,11 @@ export const Navbar: React.FC = () => {
 
         {/* Zone 3: Actions & User Auth */}
         <div className="flex items-center gap-3 shrink-0">
-          {/* Admin Switcher / Dashboard Trigger */}
-          {isAdmin ? (
+          {/* Admin Dashboard Trigger - ONLY visible when author is authenticated */}
+          {isAdmin && (
             <button
               onClick={() => setAdminModalOpen(true)}
-              className="relative px-3.5 py-2 text-xs font-semibold text-stone-900 bg-amber-300 hover:bg-amber-400 rounded-lg transition-all shadow-sm flex items-center gap-2 whitespace-nowrap shrink-0"
+              className="relative px-3.5 py-2 text-xs font-semibold text-stone-900 bg-amber-300 hover:bg-amber-400 rounded-lg transition-all shadow-sm flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer"
               title="Open Author Admin Dashboard"
             >
               <ShieldCheck className="w-4 h-4 text-stone-900" />
@@ -73,15 +73,6 @@ export const Navbar: React.FC = () => {
                   {totalAdminAlerts}
                 </span>
               )}
-            </button>
-          ) : (
-            <button
-              onClick={() => toggleAdminMode(true)}
-              className="text-xs text-stone-500 hover:text-stone-900 px-2.5 py-1.5 rounded-md hover:bg-stone-200/50 transition-colors hidden sm:flex items-center gap-1"
-              title="Switch to Author Admin View"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-stone-400" />
-              <span>Author Login</span>
             </button>
           )}
 

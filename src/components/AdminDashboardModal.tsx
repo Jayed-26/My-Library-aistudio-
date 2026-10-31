@@ -45,12 +45,12 @@ export const AdminDashboardModal: React.FC = () => {
     contact,
     updateContact,
     messages,
-    replyToMessage
+    replyToMessage,
+    deleteMessage,
+    clearAllMessages
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'requests' | 'reviews' | 'books' | 'profile' | 'contact' | 'messages'>('requests');
-  const [adminPin, setAdminPin] = useState('');
-  const [pinError, setPinError] = useState(false);
 
   // Profile edit form state
   const [profileForm, setProfileForm] = useState({ ...profile });
@@ -104,74 +104,7 @@ export const AdminDashboardModal: React.FC = () => {
     chapter2Content: 'Step-by-step rituals to systematically eliminate digital distraction and cultivate daily creative flow.'
   });
 
-  if (!isAdminModalOpen) return null;
-
-  // Security gate: if not yet authenticated as admin, prompt for passcode or author login
-  if (!isAdmin) {
-    const handlePinSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      // Default owner passcode
-      if (adminPin === 'jayed2026' || adminPin === 'admin' || adminPin === '1234') {
-        toggleAdminMode(true);
-        setPinError(false);
-      } else {
-        setPinError(true);
-      }
-    };
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/80 backdrop-blur-xs">
-        <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-amber-300">
-          <button
-            onClick={() => setAdminModalOpen(false)}
-            className="absolute top-4 right-4 text-stone-400 hover:text-stone-700"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          
-          <div className="text-center mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-amber-400 text-stone-950 flex items-center justify-center mx-auto mb-3 shadow-sm">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <h3 className="font-display font-extrabold text-xl text-stone-900">
-              Author Admin Access
-            </h3>
-            <p className="text-xs text-stone-600 mt-1">
-              Enter your author passcode or log in with <strong className="text-stone-900">jayedmahmud18@gmail.com</strong>
-            </p>
-          </div>
-
-          <form onSubmit={handlePinSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Passcode (Default: <code className="bg-amber-100 text-amber-900 px-1 py-0.5 rounded">jayed2026</code>)
-              </label>
-              <input
-                type="password"
-                value={adminPin}
-                onChange={(e) => { setAdminPin(e.target.value); setPinError(false); }}
-                placeholder="Enter passcode"
-                className="w-full px-3 py-2.5 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400"
-              />
-              {pinError && (
-                <p className="text-[11px] text-red-600 font-medium mt-1">
-                  Incorrect passcode. Use default: jayed2026
-                </p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-2.5 bg-stone-900 hover:bg-stone-800 text-amber-300 font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5"
-            >
-              <ShieldCheck className="w-4 h-4 text-amber-400" />
-              <span>Unlock Author Panel</span>
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
+  if (!isAdminModalOpen || !isAdmin) return null;
 
   const pendingRequests = requests.filter(r => r.status === 'pending');
   const pendingReviews = reviews.filter(r => r.status === 'pending');
@@ -1175,9 +1108,24 @@ export const AdminDashboardModal: React.FC = () => {
                     Messages submitted from the website. You can reply directly here, and the user will see your reply.
                   </p>
                 </div>
-                <span className="text-xs font-semibold text-stone-500">
-                  Total: {messages.length}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold text-stone-500">
+                    Total: {messages.length}
+                  </span>
+                  {messages.length > 0 && (
+                    <button
+                      onClick={() => {
+                        if (confirm('Clear all messages from the inbox?')) {
+                          clearAllMessages();
+                        }
+                      }}
+                      className="px-2.5 py-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Clear All</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {messages.length === 0 ? (
@@ -1200,9 +1148,18 @@ export const AdminDashboardModal: React.FC = () => {
                           <span className="font-bold text-sm text-stone-900">{m.name}</span>
                           <span className="text-xs text-stone-500">({m.email})</span>
                         </div>
-                        <span className="text-[10px] text-stone-400">
-                          {new Date(m.createdAt).toLocaleString()}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-stone-400">
+                            {new Date(m.createdAt).toLocaleString()}
+                          </span>
+                          <button
+                            onClick={() => deleteMessage(m.id)}
+                            className="p-1 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Delete message"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
 
                       <p className="text-xs sm:text-sm text-stone-800 bg-white p-3 rounded-lg border border-stone-200 my-2">

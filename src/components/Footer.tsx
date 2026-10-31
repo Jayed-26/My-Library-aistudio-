@@ -46,20 +46,17 @@ export const Footer: React.FC = () => {
             © {new Date().getFullYear()} {profile.name}. All rights reserved. E-books published directly with bKash verification.
           </p>
 
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => {
-                if (!isAdmin) {
-                  toggleAdminMode(true);
-                }
-                setAdminModalOpen(true);
-              }}
-              className="text-stone-400 hover:text-amber-400 text-xs flex items-center gap-1.5 transition-colors"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-              <span>{isAdmin ? 'Author Control Center' : 'Admin Login'}</span>
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setAdminModalOpen(true)}
+                className="text-stone-400 hover:text-amber-400 text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                <span>Author Dashboard</span>
+              </button>
+            </div>
+          )}
         </div>
 
       </div>

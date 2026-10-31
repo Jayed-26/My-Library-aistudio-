@@ -22,7 +22,8 @@ export const ReviewsSection: React.FC = () => {
     setAuthModalOpen,
     approveReview,
     rejectReview,
-    deleteReview
+    deleteReview,
+    showToast
   } = useApp();
 
   const [selectedBookFilter, setSelectedBookFilter] = useState<string>('all');
@@ -53,7 +54,7 @@ export const ReviewsSection: React.FC = () => {
     }
 
     if (approvedUserRequests.length === 0) {
-      alert("Only readers who have received Author Approval for a full e-book download can leave a review. Please request access to a book first!");
+      showToast("Only verified readers who had their bKash download request approved by Jayed can leave a review!");
       return;
     }
 

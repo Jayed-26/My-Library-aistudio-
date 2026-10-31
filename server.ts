@@ -230,6 +230,20 @@ async function startServer() {
     res.json({ success: true, message: db.messages[index] });
   });
 
+  app.delete('/api/messages/:id', (req, res) => {
+    const db = getDatabase();
+    db.messages = db.messages.filter((m: any) => m.id !== req.params.id);
+    saveDatabase(db);
+    res.json({ success: true });
+  });
+
+  app.delete('/api/messages', (_req, res) => {
+    const db = getDatabase();
+    db.messages = [];
+    saveDatabase(db);
+    res.json({ success: true });
+  });
+
   // Reset to default seed data if needed
   app.post('/api/reset', (_req, res) => {
     const defaultData = {

@@ -150,22 +150,7 @@ export const initialBooks: Ebook[] = [
   }
 ];
 
-export const initialRequests: DownloadRequest[] = [
-  {
-    id: "req-1",
-    bookId: "book-2",
-    bookTitle: "The Creator's Blueprint",
-    bookCoverUrl: "/src/assets/images/cover_digital_creator_playbook_1793435132635.jpg",
-    userId: "user-tanvir",
-    userName: "Tanvir Ahmed",
-    userEmail: "tanvir.creator@gmail.com",
-    bkashNumber: "01711-987654 (TrxID: 8KL01P2X)",
-    description: "Paid ৳320 via bKash. Please approve my access.",
-    status: "pending",
-    createdAt: "2026-10-30T14:20:00Z",
-    updatedAt: "2026-10-30T14:20:00Z"
-  }
-];
+export const initialRequests: DownloadRequest[] = [];
 
 export const initialReviews: BookReview[] = [
   {
@@ -182,18 +167,6 @@ export const initialReviews: BookReview[] = [
   },
   {
     id: "rev-2",
-    bookId: "book-1",
-    bookTitle: "Feel-Good Focus",
-    userId: "user-nafisa",
-    userName: "Nafisa Kamal",
-    userEmail: "nafisa.kamal.design@gmail.com",
-    rating: 5,
-    comment: "Short, punchy, and deeply actionable. No fluff, just practical frameworks you can apply in 10 minutes. 10/10 recommendation!",
-    status: "approved",
-    createdAt: "2026-10-27T12:45:00Z"
-  },
-  {
-    id: "rev-3",
     bookId: "book-2",
     bookTitle: "The Creator's Blueprint",
     userId: "user-sadia",
@@ -221,23 +194,4 @@ export const initialContact: ContactInfo = {
   }
 };
 
-export const initialMessages: QuickMessage[] = [
-  {
-    id: "msg-1",
-    name: "Ayman Chowdhury",
-    email: "ayman.c@gmail.com",
-    message: "Salam Jayed bhai! I just finished Feel-Good Focus. Are you planning an audio version or Bengali translation in the future?",
-    reply: "Salam Ayman! Thank you so much for the kind words. Yes, an audio version is currently in development and expected next month!",
-    replyAt: "2026-10-29T18:00:00Z",
-    createdAt: "2026-10-29T14:10:00Z",
-    status: "replied"
-  },
-  {
-    id: "msg-2",
-    name: "Sabrina Mostafa",
-    email: "sabrina.m@yahoo.com",
-    message: "Would love to invite you to speak at our university tech & entrepreneurship seminar next month. What is the best way to coordinate?",
-    createdAt: "2026-10-30T19:30:00Z",
-    status: "unread"
-  }
-];
+export const initialMessages: QuickMessage[] = [];

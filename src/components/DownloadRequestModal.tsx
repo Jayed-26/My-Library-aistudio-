@@ -9,7 +9,8 @@ export const DownloadRequestModal: React.FC = () => {
     currentUser,
     contact,
     submitDownloadRequest,
-    getUserRequestForBook
+    getUserRequestForBook,
+    showToast
   } = useApp();
 
   const [copiedBkash, setCopiedBkash] = useState(false);
@@ -45,7 +46,7 @@ export const DownloadRequestModal: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bkashNumber.trim() || !description.trim()) {
-      alert('Please provide your bKash reference number/TrxID and description.');
+      showToast('Please provide your bKash reference number/TrxID and description.');
       return;
     }
 

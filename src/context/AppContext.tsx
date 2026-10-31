@@ -66,6 +66,8 @@ interface AppContextType {
   updateContact: (updated: Partial<ContactInfo>) => Promise<void>;
   sendQuickMessage: (name: string, email: string, message: string) => Promise<boolean>;
   replyToMessage: (messageId: string, reply: string) => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
+  clearAllMessages: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -82,8 +84,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [requests, setRequests] = useState<DownloadRequest[]>(() => {
-    const saved = localStorage.getItem('author_requests');
-    return saved ? JSON.parse(saved) : initialRequests;
+    try {
+      const saved = localStorage.getItem('author_requests');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed)
+          ? parsed.filter((r: any) => r.userId !== 'user-rahman' && r.userId !== 'user-tanvir')
+          : [];
+      }
+    } catch {
+      localStorage.removeItem('author_requests');
+    }
+    return [];
   });
 
   const [reviews, setReviews] = useState<BookReview[]>(() => {
@@ -97,8 +109,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [messages, setMessages] = useState<QuickMessage[]>(() => {
-    const saved = localStorage.getItem('author_messages');
-    return saved ? JSON.parse(saved) : initialMessages;
+    try {
+      const saved = localStorage.getItem('author_messages');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed)
+          ? parsed.filter((m: any) => m.id !== 'msg-1' && m.id !== 'msg-2' && m.email !== 'ayman.c@gmail.com' && m.email !== 'sabrina.m@yahoo.com')
+          : [];
+      }
+    } catch {
+      localStorage.removeItem('author_messages');
+    }
+    return [];
   });
 
   // Current logged in user (strictly starts as null - NO fake user!)
@@ -120,8 +142,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    const saved = localStorage.getItem('author_is_admin');
-    return saved === 'true';
+    try {
+      const saved = localStorage.getItem('author_current_user');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.email?.toLowerCase() === 'jayedmahmud18@gmail.com';
+      }
+    } catch {}
+    return false;
   });
 
   const [activePreviewBook, setActivePreviewBook] = useState<Ebook | null>(null);
@@ -153,8 +181,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           localStorage.setItem('author_books', JSON.stringify(data.books));
         }
         if (data.requests) {
-          setRequests(data.requests);
-          localStorage.setItem('author_requests', JSON.stringify(data.requests));
+          const filtered = Array.isArray(data.requests)
+            ? data.requests.filter((r: any) => r.userId !== 'user-rahman' && r.userId !== 'user-tanvir')
+            : [];
+          setRequests(filtered);
+          localStorage.setItem('author_requests', JSON.stringify(filtered));
         }
         if (data.reviews) {
           setReviews(data.reviews);
@@ -165,8 +196,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           localStorage.setItem('author_contact', JSON.stringify(data.contact));
         }
         if (data.messages) {
-          setMessages(data.messages);
-          localStorage.setItem('author_messages', JSON.stringify(data.messages));
+          const filtered = Array.isArray(data.messages)
+            ? data.messages.filter((m: any) => m.id !== 'msg-1' && m.id !== 'msg-2' && m.email !== 'ayman.c@gmail.com' && m.email !== 'sabrina.m@yahoo.com')
+            : [];
+          setMessages(filtered);
+          localStorage.setItem('author_messages', JSON.stringify(filtered));
         }
       })
       .catch(err => {
@@ -202,12 +236,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('author_current_user', JSON.stringify(currentUser));
-      if (currentUser.email === 'jayedmahmud18@gmail.com') {
-        setIsAdmin(true);
+      const userIsAuthor = currentUser.email.toLowerCase() === 'jayedmahmud18@gmail.com';
+      setIsAdmin(userIsAuthor);
+      if (userIsAuthor) {
         localStorage.setItem('author_is_admin', 'true');
+      } else {
+        localStorage.removeItem('author_is_admin');
+        setAdminModalOpen(false);
       }
     } else {
+      setIsAdmin(false);
+      setAdminModalOpen(false);
       localStorage.removeItem('author_current_user');
+      localStorage.removeItem('author_is_admin');
     }
   }, [currentUser]);
 
@@ -216,21 +257,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [isAdmin]);
 
   const loginWithGoogle = (emailInput?: string, nameInput?: string) => {
-    const rawEmail = (emailInput || 'jayedmahmud18@gmail.com').trim();
-    const email = rawEmail.toLowerCase();
+    let rawEmail = (emailInput || '').trim();
+    if (!rawEmail) {
+      showToast('Please enter an email address');
+      return;
+    }
+    // Auto-complete handle if author entered jayedmahmud18 without @
+    if (!rawEmail.includes('@') && rawEmail.toLowerCase() === 'jayedmahmud18') {
+      rawEmail = 'jayedmahmud18@gmail.com';
+    }
 
-    // Determine name
+    const email = rawEmail.toLowerCase();
+    const userIsAdmin = email === 'jayedmahmud18@gmail.com';
+
+    // Determine user name
     let name = nameInput?.trim();
     if (!name) {
-      if (email === 'jayedmahmud18@gmail.com') {
+      if (userIsAdmin) {
         name = 'Jayed Mahmud (Author)';
       } else {
-        const handle = email.split('@')[0];
+        const handle = email.split('@')[0] || 'Reader';
         name = handle.charAt(0).toUpperCase() + handle.slice(1);
       }
     }
-
-    const userIsAdmin = email === 'jayedmahmud18@gmail.com';
 
     const newUser: AuthUser = {
       id: 'usr-' + Date.now(),
@@ -246,9 +295,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (userIsAdmin) {
       setIsAdmin(true);
       localStorage.setItem('author_is_admin', 'true');
-      showToast(`Signed in as Jayed Mahmud! Author Admin Mode enabled.`);
+      setAdminModalOpen(true); // Automatically open the Author Control Center
+      showToast(`Welcome back, Jayed! Author Dashboard unlocked.`);
     } else {
-      showToast(`Signed in with Google as ${name} (${rawEmail})`);
+      setIsAdmin(false);
+      localStorage.removeItem('author_is_admin');
+      setAdminModalOpen(false);
+      showToast(`Signed in with Google as ${name}`);
     }
 
     setAuthModalOpen(false);
@@ -257,12 +310,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = () => {
     setCurrentUser(null);
     setIsAdmin(false);
+    setAdminModalOpen(false);
     localStorage.removeItem('author_current_user');
     localStorage.removeItem('author_is_admin');
     showToast('Signed out from Google account');
   };
 
   const toggleAdminMode = (overrideAdmin?: boolean) => {
+    if (!currentUser || currentUser.email.toLowerCase() !== 'jayedmahmud18@gmail.com') {
+      setIsAdmin(false);
+      setAdminModalOpen(false);
+      return;
+    }
     const nextVal = overrideAdmin !== undefined ? overrideAdmin : !isAdmin;
     setIsAdmin(nextVal);
     if (nextVal) {
@@ -553,6 +612,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const deleteMessage = async (messageId: string) => {
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+    try {
+      await fetch(`/api/messages/${messageId}`, { method: 'DELETE' });
+      showToast('Message deleted.');
+    } catch {
+      showToast('Message deleted locally.');
+    }
+  };
+
+  const clearAllMessages = async () => {
+    setMessages([]);
+    try {
+      await fetch('/api/messages', { method: 'DELETE' });
+      showToast('All messages cleared.');
+    } catch {
+      showToast('All messages cleared locally.');
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -598,7 +677,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteReview,
         updateContact,
         sendQuickMessage,
-        replyToMessage
+        replyToMessage,
+        deleteMessage,
+        clearAllMessages
       }}
     >
       {children}

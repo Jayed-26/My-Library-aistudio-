@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import {
   Mail,
@@ -26,7 +26,8 @@ export const ContactSection: React.FC = () => {
     currentUser,
     isAdmin,
     setAdminModalOpen,
-    sendQuickMessage
+    sendQuickMessage,
+    showToast
   } = useApp();
 
   const [name, setName] = useState(currentUser?.name || '');
@@ -34,6 +35,13 @@ export const ContactSection: React.FC = () => {
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
+
+  useEffect(() => {
+    if (currentUser) {
+      setName(currentUser.name);
+      setEmail(currentUser.email);
+    }
+  }, [currentUser]);
 
   // Filter messages sent by the current user to display their conversation status
   const userMessages = currentUser
@@ -43,7 +51,7 @@ export const ContactSection: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim() || !message.trim()) {
-      alert('Please fill in your name, email, and message.');
+      showToast('Please fill in your name, email, and message.');
       return;
     }
 
@@ -265,7 +273,7 @@ export const ContactSection: React.FC = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
-                    placeholder="e.g. Ayman Chowdhury"
+                    placeholder="Enter your name"
                     className="w-full px-3.5 py-2.5 text-sm bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400"
                   />
                 </div>
@@ -279,7 +287,7 @@ export const ContactSection: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    placeholder="e.g. ayman@gmail.com"
+                    placeholder="name@gmail.com"
                     className="w-full px-3.5 py-2.5 text-sm bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400"
                   />
                 </div>
