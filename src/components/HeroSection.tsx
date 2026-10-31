@@ -17,21 +17,8 @@ export const HeroSection: React.FC = () => {
           {/* Left Column: Greeting, Name, Bio, and CTAs (as requested: "website ey dukha matro amar nam namer niche akta bio") */}
           <div className="lg:col-span-7 flex flex-col justify-center order-2 lg:order-1">
             
-            {/* Playful Greeting inspired by Ali Abdaal reference */}
-            <div className="inline-flex items-center gap-2 mb-3">
-              <span className="text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-stone-900 tracking-tight">
-                {profile.greeting}
-              </span>
-              <span className="text-3xl sm:text-4xl animate-bounce" role="img" aria-label="wave">
-                👋
-              </span>
-            </div>
-
-            {/* Playful curved accent underline */}
-            <div className="w-24 sm:w-32 h-1.5 bg-amber-400 rounded-full -mt-1 mb-6"></div>
-
-            {/* Author Name as requested: right at top with no unnecessary heading */}
-            <h1 className="text-3xl sm:text-5xl lg:text-5xl font-display font-extrabold text-stone-900 tracking-tight leading-[1.15] mb-5 text-balance">
+            {/* Author Name as requested: right at top with no heading above it */}
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-display font-extrabold text-stone-900 tracking-tight leading-[1.15] mb-4 text-balance">
               I'm <span className="underline decoration-amber-400 decoration-wavy decoration-2 underline-offset-8">{profile.name}</span>.
             </h1>
 
