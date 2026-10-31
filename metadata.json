@@ -1,0 +1,6 @@
+{
+  "name": "Jayed Mahmud - Author & Creator | Official E-Books",
+  "description": "Official author platform and e-book store of Jayed Mahmud. Explore publications, preview chapters, request verified downloads, and read approved reviews.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

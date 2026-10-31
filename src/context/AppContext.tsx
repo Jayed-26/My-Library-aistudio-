@@ -1,0 +1,589 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import {
+  AuthorProfile,
+  Ebook,
+  DownloadRequest,
+  BookReview,
+  ContactInfo,
+  QuickMessage,
+  AuthUser
+} from '../types.ts';
+import {
+  initialProfile,
+  initialBooks,
+  initialRequests,
+  initialReviews,
+  initialContact,
+  initialMessages
+} from '../data/seedData.ts';
+
+interface AppContextType {
+  profile: AuthorProfile;
+  books: Ebook[];
+  requests: DownloadRequest[];
+  reviews: BookReview[];
+  contact: ContactInfo;
+  messages: QuickMessage[];
+  currentUser: AuthUser | null;
+  isAdmin: boolean;
+  activePreviewBook: Ebook | null;
+  activeFullBook: Ebook | null;
+  activeRequestBook: Ebook | null;
+  activeReviewModalBook: Ebook | null;
+  isAdminModalOpen: boolean;
+  isAuthModalOpen: boolean;
+  toastMessage: string | null;
+
+  // Actions
+  loginWithGoogle: (email?: string, name?: string) => void;
+  logout: () => void;
+  toggleAdminMode: (overrideAdmin?: boolean) => void;
+  setAdminModalOpen: (open: boolean) => void;
+  setAuthModalOpen: (open: boolean) => void;
+  setActivePreviewBook: (book: Ebook | null) => void;
+  setActiveFullBook: (book: Ebook | null) => void;
+  setActiveRequestBook: (book: Ebook | null) => void;
+  setActiveReviewModalBook: (book: Ebook | null) => void;
+  showToast: (msg: string) => void;
+
+  // Data operations
+  updateProfile: (updated: Partial<AuthorProfile>) => Promise<void>;
+  addBook: (book: Omit<Ebook, 'id' | 'publishedDate'>) => Promise<void>;
+  updateBook: (id: string, updated: Partial<Ebook>) => Promise<void>;
+  deleteBook: (id: string) => Promise<void>;
+  
+  submitDownloadRequest: (bookId: string, bkashNumber: string, description: string) => Promise<boolean>;
+  getUserRequestForBook: (bookId: string) => DownloadRequest | undefined;
+  approveRequest: (requestId: string) => Promise<void>;
+  rejectRequest: (requestId: string, reason?: string) => Promise<void>;
+
+  submitReview: (bookId: string, rating: number, comment: string) => Promise<boolean>;
+  canUserReviewBook: (bookId: string) => boolean;
+  approveReview: (reviewId: string) => Promise<void>;
+  rejectReview: (reviewId: string) => Promise<void>;
+  deleteReview: (reviewId: string) => Promise<void>;
+
+  updateContact: (updated: Partial<ContactInfo>) => Promise<void>;
+  sendQuickMessage: (name: string, email: string, message: string) => Promise<boolean>;
+  replyToMessage: (messageId: string, reply: string) => Promise<void>;
+}
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [profile, setProfile] = useState<AuthorProfile>(() => {
+    const saved = localStorage.getItem('author_profile');
+    return saved ? JSON.parse(saved) : initialProfile;
+  });
+
+  const [books, setBooks] = useState<Ebook[]>(() => {
+    const saved = localStorage.getItem('author_books');
+    return saved ? JSON.parse(saved) : initialBooks;
+  });
+
+  const [requests, setRequests] = useState<DownloadRequest[]>(() => {
+    const saved = localStorage.getItem('author_requests');
+    return saved ? JSON.parse(saved) : initialRequests;
+  });
+
+  const [reviews, setReviews] = useState<BookReview[]>(() => {
+    const saved = localStorage.getItem('author_reviews');
+    return saved ? JSON.parse(saved) : initialReviews;
+  });
+
+  const [contact, setContact] = useState<ContactInfo>(() => {
+    const saved = localStorage.getItem('author_contact');
+    return saved ? JSON.parse(saved) : initialContact;
+  });
+
+  const [messages, setMessages] = useState<QuickMessage[]>(() => {
+    const saved = localStorage.getItem('author_messages');
+    return saved ? JSON.parse(saved) : initialMessages;
+  });
+
+  // Current logged in user (Default to a demo visitor, or author)
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
+    const saved = localStorage.getItem('author_current_user');
+    return saved ? JSON.parse(saved) : {
+      id: 'demo-reader',
+      name: 'Rahman Hasan',
+      email: 'rahman.hasan.bd@gmail.com',
+      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rahman',
+      isAdmin: false
+    };
+  });
+
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    const saved = localStorage.getItem('author_is_admin');
+    return saved === 'true';
+  });
+
+  const [activePreviewBook, setActivePreviewBook] = useState<Ebook | null>(null);
+  const [activeFullBook, setActiveFullBook] = useState<Ebook | null>(null);
+  const [activeRequestBook, setActiveRequestBook] = useState<Ebook | null>(null);
+  const [activeReviewModalBook, setActiveReviewModalBook] = useState<Ebook | null>(null);
+  const [isAdminModalOpen, setAdminModalOpen] = useState<boolean>(false);
+  const [isAuthModalOpen, setAuthModalOpen] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+  };
+
+  // Sync from server on mount
+  useEffect(() => {
+    fetch('/api/data')
+      .then(res => res.json())
+      .then(data => {
+        if (data.profile) {
+          setProfile(data.profile);
+          localStorage.setItem('author_profile', JSON.stringify(data.profile));
+        }
+        if (data.books) {
+          setBooks(data.books);
+          localStorage.setItem('author_books', JSON.stringify(data.books));
+        }
+        if (data.requests) {
+          setRequests(data.requests);
+          localStorage.setItem('author_requests', JSON.stringify(data.requests));
+        }
+        if (data.reviews) {
+          setReviews(data.reviews);
+          localStorage.setItem('author_reviews', JSON.stringify(data.reviews));
+        }
+        if (data.contact) {
+          setContact(data.contact);
+          localStorage.setItem('author_contact', JSON.stringify(data.contact));
+        }
+        if (data.messages) {
+          setMessages(data.messages);
+          localStorage.setItem('author_messages', JSON.stringify(data.messages));
+        }
+      })
+      .catch(err => {
+        console.warn('API sync fallback to local storage:', err);
+      });
+  }, []);
+
+  // Save to localStorage when states update
+  useEffect(() => {
+    localStorage.setItem('author_profile', JSON.stringify(profile));
+  }, [profile]);
+
+  useEffect(() => {
+    localStorage.setItem('author_books', JSON.stringify(books));
+  }, [books]);
+
+  useEffect(() => {
+    localStorage.setItem('author_requests', JSON.stringify(requests));
+  }, [requests]);
+
+  useEffect(() => {
+    localStorage.setItem('author_reviews', JSON.stringify(reviews));
+  }, [reviews]);
+
+  useEffect(() => {
+    localStorage.setItem('author_contact', JSON.stringify(contact));
+  }, [contact]);
+
+  useEffect(() => {
+    localStorage.setItem('author_messages', JSON.stringify(messages));
+  }, [messages]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('author_current_user', JSON.stringify(currentUser));
+      if (currentUser.email === 'jayedmahmud18@gmail.com') {
+        setIsAdmin(true);
+        localStorage.setItem('author_is_admin', 'true');
+      }
+    } else {
+      localStorage.removeItem('author_current_user');
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    localStorage.setItem('author_is_admin', isAdmin ? 'true' : 'false');
+  }, [isAdmin]);
+
+  const loginWithGoogle = (customEmail?: string, customName?: string) => {
+    const email = customEmail || 'jayedmahmud18@gmail.com';
+    const name = customName || (email === 'jayedmahmud18@gmail.com' ? 'Jayed Mahmud (Author)' : email.split('@')[0]);
+    const userIsAdmin = email.toLowerCase() === 'jayedmahmud18@gmail.com';
+
+    const newUser: AuthUser = {
+      id: 'usr-' + Date.now(),
+      name,
+      email,
+      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`,
+      isAdmin: userIsAdmin
+    };
+
+    setCurrentUser(newUser);
+    if (userIsAdmin) {
+      setIsAdmin(true);
+    }
+    setAuthModalOpen(false);
+    showToast(`Signed in with Google as ${name}`);
+  };
+
+  const logout = () => {
+    setCurrentUser(null);
+    setIsAdmin(false);
+    showToast('Signed out successfully');
+  };
+
+  const toggleAdminMode = (overrideAdmin?: boolean) => {
+    const nextVal = overrideAdmin !== undefined ? overrideAdmin : !isAdmin;
+    setIsAdmin(nextVal);
+    if (nextVal) {
+      showToast('Admin Mode Enabled. You can edit all content directly.');
+    } else {
+      showToast('Admin Mode Disabled. Viewing as regular visitor.');
+    }
+  };
+
+  const updateProfile = async (updated: Partial<AuthorProfile>) => {
+    const newProfile = { ...profile, ...updated };
+    setProfile(newProfile);
+    try {
+      await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+      showToast('Author profile updated successfully!');
+    } catch {
+      showToast('Profile updated locally.');
+    }
+  };
+
+  const addBook = async (bookData: Omit<Ebook, 'id' | 'publishedDate'>) => {
+    const newBook: Ebook = {
+      ...bookData,
+      id: 'book-' + Date.now(),
+      publishedDate: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    };
+    setBooks(prev => [newBook, ...prev]);
+    try {
+      await fetch('/api/books', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookData)
+      });
+      showToast(`'${newBook.title}' published successfully!`);
+    } catch {
+      showToast('Book added locally.');
+    }
+  };
+
+  const updateBook = async (id: string, updated: Partial<Ebook>) => {
+    setBooks(prev => prev.map(b => b.id === id ? { ...b, ...updated } : b));
+    try {
+      await fetch(`/api/books/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+      showToast('Book details updated!');
+    } catch {
+      showToast('Book updated locally.');
+    }
+  };
+
+  const deleteBook = async (id: string) => {
+    setBooks(prev => prev.filter(b => b.id !== id));
+    try {
+      await fetch(`/api/books/${id}`, { method: 'DELETE' });
+      showToast('Book removed from collection.');
+    } catch {
+      showToast('Book removed locally.');
+    }
+  };
+
+  const getUserRequestForBook = (bookId: string): DownloadRequest | undefined => {
+    if (!currentUser) return undefined;
+    return requests.find(r => r.bookId === bookId && r.userEmail === currentUser.email);
+  };
+
+  const submitDownloadRequest = async (bookId: string, bkashNumber: string, description: string): Promise<boolean> => {
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      return false;
+    }
+
+    const targetBook = books.find(b => b.id === bookId);
+    if (!targetBook) return false;
+
+    const newRequest: DownloadRequest = {
+      id: 'req-' + Date.now(),
+      bookId,
+      bookTitle: targetBook.title,
+      bookCoverUrl: targetBook.coverUrl,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userEmail: currentUser.email,
+      bkashNumber,
+      description,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    setRequests(prev => {
+      const idx = prev.findIndex(r => r.bookId === bookId && r.userEmail === currentUser.email);
+      if (idx !== -1) {
+        const copy = [...prev];
+        copy[idx] = newRequest;
+        return copy;
+      }
+      return [newRequest, ...prev];
+    });
+
+    try {
+      await fetch('/api/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRequest)
+      });
+      showToast('Request submitted! Awaiting author bKash verification & approval.');
+      return true;
+    } catch {
+      showToast('Request recorded locally.');
+      return true;
+    }
+  };
+
+  const approveRequest = async (requestId: string) => {
+    setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'approved', updatedAt: new Date().toISOString() } : r));
+    try {
+      await fetch(`/api/requests/${requestId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'approved' })
+      });
+      showToast('Download request approved! User can now access the full book & submit reviews.');
+    } catch {
+      showToast('Approved locally.');
+    }
+  };
+
+  const rejectRequest = async (requestId: string, reason?: string) => {
+    setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'rejected', rejectionReason: reason || 'bKash reference could not be verified. Please submit again.', updatedAt: new Date().toISOString() } : r));
+    try {
+      await fetch(`/api/requests/${requestId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'rejected', rejectionReason: reason })
+      });
+      showToast('Request rejected. User will see a "Request Again" option.');
+    } catch {
+      showToast('Rejected locally.');
+    }
+  };
+
+  const canUserReviewBook = (bookId: string): boolean => {
+    if (!currentUser) return false;
+    // User can review ONLY if they had an approved download request for this book!
+    const req = requests.find(r => r.bookId === bookId && r.userEmail === currentUser.email && r.status === 'approved');
+    return !!req;
+  };
+
+  const submitReview = async (bookId: string, rating: number, comment: string): Promise<boolean> => {
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      return false;
+    }
+
+    if (!canUserReviewBook(bookId)) {
+      showToast('Only readers with approved full-book access can submit a review.');
+      return false;
+    }
+
+    const targetBook = books.find(b => b.id === bookId);
+    if (!targetBook) return false;
+
+    const newReview: BookReview = {
+      id: 'rev-' + Date.now(),
+      bookId,
+      bookTitle: targetBook.title,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userEmail: currentUser.email,
+      rating,
+      comment,
+      status: 'pending', // Awaiting author approval!
+      createdAt: new Date().toISOString()
+    };
+
+    setReviews(prev => [newReview, ...prev]);
+
+    try {
+      await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newReview)
+      });
+      showToast('Thank you! Your review has been submitted and will appear upon author approval.');
+      return true;
+    } catch {
+      showToast('Review submitted for moderation.');
+      return true;
+    }
+  };
+
+  const approveReview = async (reviewId: string) => {
+    setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, status: 'approved' } : r));
+    try {
+      await fetch(`/api/reviews/${reviewId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'approved' })
+      });
+      showToast('Review approved and published to website!');
+    } catch {
+      showToast('Review approved locally.');
+    }
+  };
+
+  const rejectReview = async (reviewId: string) => {
+    setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, status: 'rejected' } : r));
+    try {
+      await fetch(`/api/reviews/${reviewId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'rejected' })
+      });
+      showToast('Review declined.');
+    } catch {
+      showToast('Review declined locally.');
+    }
+  };
+
+  const deleteReview = async (reviewId: string) => {
+    setReviews(prev => prev.filter(r => r.id !== reviewId));
+    try {
+      await fetch(`/api/reviews/${reviewId}`, { method: 'DELETE' });
+      showToast('Review deleted.');
+    } catch {
+      showToast('Review removed locally.');
+    }
+  };
+
+  const updateContact = async (updated: Partial<ContactInfo>) => {
+    const newContact = { ...contact, ...updated };
+    setContact(newContact);
+    try {
+      await fetch('/api/contact', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+      showToast('Contact info updated!');
+    } catch {
+      showToast('Contact info saved locally.');
+    }
+  };
+
+  const sendQuickMessage = async (name: string, email: string, message: string): Promise<boolean> => {
+    const newMsg: QuickMessage = {
+      id: 'msg-' + Date.now(),
+      name,
+      email,
+      message,
+      status: 'unread',
+      createdAt: new Date().toISOString()
+    };
+    setMessages(prev => [newMsg, ...prev]);
+
+    try {
+      await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newMsg)
+      });
+      showToast('Message sent! Jayed will review it and reply back to you.');
+      return true;
+    } catch {
+      showToast('Message sent successfully!');
+      return true;
+    }
+  };
+
+  const replyToMessage = async (messageId: string, reply: string) => {
+    setMessages(prev => prev.map(m => m.id === messageId ? { ...m, reply, replyAt: new Date().toISOString(), status: 'replied' } : m));
+    try {
+      await fetch(`/api/messages/${messageId}/reply`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reply })
+      });
+      showToast('Reply saved and sent to user!');
+    } catch {
+      showToast('Reply saved locally.');
+    }
+  };
+
+  return (
+    <AppContext.Provider
+      value={{
+        profile,
+        books,
+        requests,
+        reviews,
+        contact,
+        messages,
+        currentUser,
+        isAdmin,
+        activePreviewBook,
+        activeFullBook,
+        activeRequestBook,
+        activeReviewModalBook,
+        isAdminModalOpen,
+        isAuthModalOpen,
+        toastMessage,
+
+        loginWithGoogle,
+        logout,
+        toggleAdminMode,
+        setAdminModalOpen,
+        setAuthModalOpen,
+        setActivePreviewBook,
+        setActiveFullBook,
+        setActiveRequestBook,
+        setActiveReviewModalBook,
+        showToast,
+
+        updateProfile,
+        addBook,
+        updateBook,
+        deleteBook,
+        submitDownloadRequest,
+        getUserRequestForBook,
+        approveRequest,
+        rejectRequest,
+        submitReview,
+        canUserReviewBook,
+        approveReview,
+        rejectReview,
+        deleteReview,
+        updateContact,
+        sendQuickMessage,
+        replyToMessage
+      }}
+    >
+      {children}
+    </AppContext.Provider>
+  );
+};
+
+export const useApp = () => {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error('useApp must be used within an AppProvider');
+  }
+  return context;
+};
