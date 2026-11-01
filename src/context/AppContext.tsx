@@ -32,6 +32,7 @@ interface AppContextType {
   activeReviewModalBook: Ebook | null;
   isAdminModalOpen: boolean;
   isAuthModalOpen: boolean;
+  isProfileModalOpen: boolean;
   toastMessage: string | null;
 
   // Actions
@@ -40,6 +41,7 @@ interface AppContextType {
   toggleAdminMode: (overrideAdmin?: boolean) => void;
   setAdminModalOpen: (open: boolean) => void;
   setAuthModalOpen: (open: boolean) => void;
+  setProfileModalOpen: (open: boolean) => void;
   setActivePreviewBook: (book: Ebook | null) => void;
   setActiveFullBook: (book: Ebook | null) => void;
   setActiveRequestBook: (book: Ebook | null) => void;
@@ -48,6 +50,7 @@ interface AppContextType {
 
   // Data operations
   updateProfile: (updated: Partial<AuthorProfile>) => Promise<void>;
+  updateUserProfile: (data: { name: string; email: string; avatar: string }) => Promise<void>;
   addBook: (book: Omit<Ebook, 'id' | 'publishedDate'>) => Promise<void>;
   updateBook: (id: string, updated: Partial<Ebook>) => Promise<void>;
   deleteBook: (id: string) => Promise<void>;
@@ -65,7 +68,7 @@ interface AppContextType {
 
   updateContact: (updated: Partial<ContactInfo>) => Promise<void>;
   sendQuickMessage: (name: string, email: string, message: string) => Promise<boolean>;
-  replyToMessage: (messageId: string, reply: string) => Promise<void>;
+  replyToMessage: (messageId: string, reply: string, sender?: 'author' | 'user') => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
   clearAllMessages: () => Promise<void>;
 }
@@ -158,6 +161,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeReviewModalBook, setActiveReviewModalBook] = useState<Ebook | null>(null);
   const [isAdminModalOpen, setAdminModalOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setAuthModalOpen] = useState<boolean>(false);
+  const [isProfileModalOpen, setProfileModalOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -573,12 +577,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateUserProfile = async (data: { name: string; email: string; avatar: string }) => {
+    if (!currentUser) return;
+    const oldEmail = currentUser.email.toLowerCase();
+    const newEmail = data.email.toLowerCase();
+    const isUserAuthor = newEmail === 'jayedmahmud18@gmail.com';
+
+    const updatedUser: AuthUser = {
+      ...currentUser,
+      name: data.name,
+      email: data.email,
+      avatar: data.avatar,
+      isAdmin: isUserAuthor
+    };
+
+    setCurrentUser(updatedUser);
+    localStorage.setItem('author_current_user', JSON.stringify(updatedUser));
+
+    if (isUserAuthor) {
+      setIsAdmin(true);
+      localStorage.setItem('author_is_admin', 'true');
+    }
+
+    // Update matching requests
+    setRequests(prev => prev.map(r => {
+      if (r.userId === currentUser.id || r.userEmail.toLowerCase() === oldEmail) {
+        return { ...r, userName: data.name, userEmail: data.email };
+      }
+      return r;
+    }));
+
+    // Update matching reviews
+    setReviews(prev => prev.map(r => {
+      if (r.userId === currentUser.id || r.userEmail.toLowerCase() === oldEmail) {
+        return { ...r, userName: data.name, userEmail: data.email };
+      }
+      return r;
+    }));
+
+    // Update matching messages
+    setMessages(prev => prev.map(m => {
+      if (m.userId === currentUser.id || m.email.toLowerCase() === oldEmail) {
+        return { ...m, name: data.name, email: data.email, userAvatar: data.avatar };
+      }
+      return m;
+    }));
+
+    showToast('Your profile has been updated!');
+  };
+
   const sendQuickMessage = async (name: string, email: string, message: string): Promise<boolean> => {
     const newMsg: QuickMessage = {
       id: 'msg-' + Date.now(),
+      userId: currentUser?.id,
       name,
       email,
+      userAvatar: currentUser?.avatar,
       message,
+      replies: [],
       status: 'unread',
       createdAt: new Date().toISOString()
     };
@@ -598,17 +654,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const replyToMessage = async (messageId: string, reply: string) => {
-    setMessages(prev => prev.map(m => m.id === messageId ? { ...m, reply, replyAt: new Date().toISOString(), status: 'replied' } : m));
+  const replyToMessage = async (messageId: string, reply: string, sender: 'author' | 'user' = 'author') => {
+    const isAuthorSender = sender === 'author';
+    const senderName = isAuthorSender ? 'Jayed Mahmud (Author)' : (currentUser?.name || 'Reader');
+    const senderAvatar = isAuthorSender ? '/assets/aistudio/image_3eb4b58c.png' : (currentUser?.avatar || '');
+
+    const newReplyItem = {
+      id: 'rep-' + Date.now(),
+      sender,
+      senderName,
+      senderAvatar,
+      message: reply,
+      createdAt: new Date().toISOString()
+    };
+
+    setMessages(prev => prev.map(m => {
+      if (m.id === messageId) {
+        const existingReplies = Array.isArray(m.replies) ? [...m.replies] : (m.reply ? [{
+          id: 'rep-init',
+          sender: 'author' as const,
+          senderName: 'Jayed Mahmud (Author)',
+          senderAvatar: '/assets/aistudio/image_3eb4b58c.png',
+          message: m.reply,
+          createdAt: m.replyAt || m.createdAt
+        }] : []);
+
+        existingReplies.push(newReplyItem);
+
+        return {
+          ...m,
+          reply,
+          replyAt: newReplyItem.createdAt,
+          replies: existingReplies,
+          status: isAuthorSender ? 'replied' : 'unread'
+        };
+      }
+      return m;
+    }));
+
     try {
       await fetch(`/api/messages/${messageId}/reply`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reply })
+        body: JSON.stringify({
+          reply,
+          sender,
+          senderName,
+          senderAvatar
+        })
       });
-      showToast('Reply saved and sent to user!');
+      if (isAuthorSender) {
+        showToast('Reply saved and sent to user!');
+      } else {
+        showToast('Your reply was sent to Jayed!');
+      }
     } catch {
-      showToast('Reply saved locally.');
+      showToast(isAuthorSender ? 'Reply saved locally.' : 'Reply sent locally.');
     }
   };
 
@@ -649,6 +750,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeReviewModalBook,
         isAdminModalOpen,
         isAuthModalOpen,
+        isProfileModalOpen,
         toastMessage,
 
         loginWithGoogle,
@@ -656,6 +758,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleAdminMode,
         setAdminModalOpen,
         setAuthModalOpen,
+        setProfileModalOpen,
         setActivePreviewBook,
         setActiveFullBook,
         setActiveRequestBook,
@@ -663,6 +766,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showToast,
 
         updateProfile,
+        updateUserProfile,
         addBook,
         updateBook,
         deleteBook,

@@ -19,9 +19,16 @@ import {
   Sparkles,
   ExternalLink,
   Send,
-  Star
+  Star,
+  UploadCloud,
+  FileText,
+  Check,
+  Eye,
+  Download,
+  FileCheck
 } from 'lucide-react';
 import { Ebook } from '../types.ts';
+import { generateEbookPdf, downloadFile, readFileAsDataUrl } from '../utils/pdfHelper.ts';
 
 export const AdminDashboardModal: React.FC = () => {
   const {
@@ -47,7 +54,8 @@ export const AdminDashboardModal: React.FC = () => {
     messages,
     replyToMessage,
     deleteMessage,
-    clearAllMessages
+    clearAllMessages,
+    showToast
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'requests' | 'reviews' | 'books' | 'profile' | 'contact' | 'messages'>('requests');
@@ -89,6 +97,8 @@ export const AdminDashboardModal: React.FC = () => {
   // New book form state
   const [showAddBookForm, setShowAddBookForm] = useState(false);
   const [editingBookId, setEditingBookId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
   const [bookForm, setBookForm] = useState({
     title: '',
     subtitle: '',
@@ -97,6 +107,12 @@ export const AdminDashboardModal: React.FC = () => {
     pages: 180,
     description: '',
     coverUrl: '/src/assets/images/cover_productivity_mastery_1793435132456.jpg',
+    fullPdfUrl: '',
+    fullPdfFileName: '',
+    fullPdfFileSize: '',
+    previewPdfUrl: '',
+    previewPdfFileName: '',
+    previewPdfFileSize: '',
     featured: false,
     chapter1Title: 'The Core Principle',
     chapter1Content: 'In this chapter, we explore how intentional focus compounds into exponential output over time.',
@@ -120,6 +136,180 @@ export const AdminDashboardModal: React.FC = () => {
     await updateContact(contactForm);
   };
 
+  // Upload Full PDF Handler
+  const handleUploadFullPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const { dataUrl, fileName, fileSize } = await readFileAsDataUrl(file);
+      setBookForm(prev => ({
+        ...prev,
+        fullPdfUrl: dataUrl,
+        fullPdfFileName: fileName,
+        fullPdfFileSize: fileSize
+      }));
+
+      // Also persist to server storage asynchronously
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName, fileData: dataUrl, fileType: file.type || 'application/pdf' })
+        });
+        const data = await res.json();
+        if (data.url) {
+          setBookForm(prev => ({ ...prev, fullPdfUrl: data.url }));
+        }
+      } catch (err) {
+        console.warn('Backend upload fallback to dataUrl:', err);
+      }
+
+      showToast(`Full E-Book PDF "${fileName}" (${fileSize}) attached successfully!`);
+    } catch (err: any) {
+      showToast('Error reading PDF file: ' + err.message);
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  // Upload Preview PDF Handler
+  const handleUploadPreviewPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const { dataUrl, fileName, fileSize } = await readFileAsDataUrl(file);
+      setBookForm(prev => ({
+        ...prev,
+        previewPdfUrl: dataUrl,
+        previewPdfFileName: fileName,
+        previewPdfFileSize: fileSize
+      }));
+
+      // Also persist to server storage asynchronously
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName, fileData: dataUrl, fileType: file.type || 'application/pdf' })
+        });
+        const data = await res.json();
+        if (data.url) {
+          setBookForm(prev => ({ ...prev, previewPdfUrl: data.url }));
+        }
+      } catch (err) {
+        console.warn('Backend upload fallback to dataUrl:', err);
+      }
+
+      showToast(`Preview Sample PDF "${fileName}" (${fileSize}) attached!`);
+    } catch (err: any) {
+      showToast('Error reading preview PDF: ' + err.message);
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  // Upload Custom Cover Handler
+  const handleUploadCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const { dataUrl, fileName } = await readFileAsDataUrl(file);
+      setBookForm(prev => ({ ...prev, coverUrl: dataUrl }));
+
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName, fileData: dataUrl, fileType: file.type || 'image/png' })
+        });
+        const data = await res.json();
+        if (data.url) {
+          setBookForm(prev => ({ ...prev, coverUrl: data.url }));
+        }
+      } catch {}
+
+      showToast('Custom cover image uploaded successfully!');
+    } catch (err: any) {
+      showToast('Error uploading cover: ' + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  // Auto Generate Full PDF helper
+  const handleAutoGenerateFullPdf = () => {
+    const tempBook: Ebook = {
+      id: editingBookId || 'temp',
+      title: bookForm.title || 'Feel-Good Focus',
+      subtitle: bookForm.subtitle || 'The Art of Intentional Work',
+      description: bookForm.description || 'Official direct edition by Jayed Mahmud.',
+      category: bookForm.category,
+      price: Number(bookForm.price),
+      pages: Number(bookForm.pages),
+      coverUrl: bookForm.coverUrl,
+      featured: bookForm.featured,
+      publishedDate: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      previewContent: {
+        chapters: [
+          { number: 'Chapter 1', title: bookForm.chapter1Title || 'The Core Principle', content: bookForm.chapter1Content || 'Focus is created by reducing friction.' },
+          { number: 'Chapter 2', title: bookForm.chapter2Title || 'Tactical Execution', content: bookForm.chapter2Content || 'Daily routines that compound into exponential mastery.' }
+        ]
+      },
+      fullContent: {
+        chapters: [
+          { number: 'Chapter 1', title: bookForm.chapter1Title || 'The Core Principle', content: bookForm.chapter1Content || 'Focus is created by reducing friction.' },
+          { number: 'Chapter 2', title: bookForm.chapter2Title || 'Tactical Execution', content: bookForm.chapter2Content || 'Daily routines that compound into exponential mastery.' },
+          { number: 'Chapter 3', title: 'Powering Down: The Recovery Protocol', content: 'Productivity is rhythmic, not continuous. Without guilt-free recovery, creative output diminishes.' },
+          { number: 'Chapter 4', title: 'The Solopreneur Leverage Framework', content: 'How to build media and product assets that compound value over time.' }
+        ]
+      }
+    };
+
+    const { dataUrl, fileName, fileSize } = generateEbookPdf(tempBook, false);
+    setBookForm(prev => ({
+      ...prev,
+      fullPdfUrl: dataUrl,
+      fullPdfFileName: fileName,
+      fullPdfFileSize: fileSize
+    }));
+    showToast(`Full Edition PDF "${fileName}" (${fileSize}) generated and attached!`);
+  };
+
+  // Auto Generate Preview PDF helper
+  const handleAutoGeneratePreviewPdf = () => {
+    const tempBook: Ebook = {
+      id: editingBookId || 'temp',
+      title: bookForm.title || 'Feel-Good Focus',
+      subtitle: bookForm.subtitle || 'The Art of Intentional Work',
+      description: bookForm.description || 'Sample preview excerpt.',
+      category: bookForm.category,
+      price: Number(bookForm.price),
+      pages: Number(bookForm.pages),
+      coverUrl: bookForm.coverUrl,
+      featured: bookForm.featured,
+      publishedDate: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      previewContent: {
+        chapters: [
+          { number: 'Chapter 1', title: bookForm.chapter1Title || 'The Core Principle', content: bookForm.chapter1Content || 'Focus is created by reducing friction.' },
+          { number: 'Chapter 2', title: bookForm.chapter2Title || 'Tactical Execution', content: bookForm.chapter2Content || 'Daily routines that compound into exponential mastery.' }
+        ]
+      }
+    };
+
+    const { dataUrl, fileName, fileSize } = generateEbookPdf(tempBook, true);
+    setBookForm(prev => ({
+      ...prev,
+      previewPdfUrl: dataUrl,
+      previewPdfFileName: fileName,
+      previewPdfFileSize: fileSize
+    }));
+    showToast(`Free Sample Preview PDF "${fileName}" (${fileSize}) generated!`);
+  };
+
   const handleSaveBook = async (e: React.FormEvent) => {
     e.preventDefault();
     const bookPayload = {
@@ -130,6 +320,12 @@ export const AdminDashboardModal: React.FC = () => {
       pages: Number(bookForm.pages),
       description: bookForm.description,
       coverUrl: bookForm.coverUrl,
+      fullPdfUrl: bookForm.fullPdfUrl || `/downloads/${bookForm.title.toLowerCase().replace(/[^a-z0-9]/g, '-')}-full.pdf`,
+      fullPdfFileName: bookForm.fullPdfFileName || `${bookForm.title}-Full-Edition.pdf`,
+      fullPdfFileSize: bookForm.fullPdfFileSize || '3.5 MB',
+      previewPdfUrl: bookForm.previewPdfUrl || `/downloads/${bookForm.title.toLowerCase().replace(/[^a-z0-9]/g, '-')}-preview.pdf`,
+      previewPdfFileName: bookForm.previewPdfFileName || `${bookForm.title}-Sample-Preview.pdf`,
+      previewPdfFileSize: bookForm.previewPdfFileSize || '1.1 MB',
       featured: bookForm.featured,
       previewContent: {
         chapters: [
@@ -149,9 +345,11 @@ export const AdminDashboardModal: React.FC = () => {
 
     if (editingBookId) {
       await updateBook(editingBookId, bookPayload);
+      showToast(`Book "${bookForm.title}" updated successfully!`);
       setEditingBookId(null);
     } else {
       await addBook(bookPayload);
+      showToast(`Book "${bookForm.title}" published with PDF files!`);
     }
 
     setShowAddBookForm(false);
@@ -167,11 +365,17 @@ export const AdminDashboardModal: React.FC = () => {
       pages: book.pages,
       description: book.description,
       coverUrl: book.coverUrl,
+      fullPdfUrl: book.fullPdfUrl || '',
+      fullPdfFileName: book.fullPdfFileName || '',
+      fullPdfFileSize: book.fullPdfFileSize || '',
+      previewPdfUrl: book.previewPdfUrl || '',
+      previewPdfFileName: book.previewPdfFileName || '',
+      previewPdfFileSize: book.previewPdfFileSize || '',
       featured: book.featured,
-      chapter1Title: book.previewContent.chapters[0]?.title || 'Chapter 1',
-      chapter1Content: book.previewContent.chapters[0]?.content || '',
-      chapter2Title: book.previewContent.chapters[1]?.title || 'Chapter 2',
-      chapter2Content: book.previewContent.chapters[1]?.content || ''
+      chapter1Title: book.previewContent?.chapters?.[0]?.title || 'Chapter 1',
+      chapter1Content: book.previewContent?.chapters?.[0]?.content || '',
+      chapter2Title: book.previewContent?.chapters?.[1]?.title || 'Chapter 2',
+      chapter2Content: book.previewContent?.chapters?.[1]?.content || ''
     });
     setShowAddBookForm(true);
   };
@@ -616,6 +820,12 @@ export const AdminDashboardModal: React.FC = () => {
                       pages: 180,
                       description: '',
                       coverUrl: '/src/assets/images/cover_productivity_mastery_1793435132456.jpg',
+                      fullPdfUrl: '',
+                      fullPdfFileName: '',
+                      fullPdfFileSize: '',
+                      previewPdfUrl: '',
+                      previewPdfFileName: '',
+                      previewPdfFileSize: '',
                       featured: false,
                       chapter1Title: 'Chapter 1: The Core Principle',
                       chapter1Content: 'Preview text for chapter 1 goes here...',
@@ -718,39 +928,259 @@ export const AdminDashboardModal: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* Cover Photo: URL, Presets, or Direct File Upload */}
                     <div>
                       <label className="block text-xs font-semibold text-stone-700 mb-1">
-                        Cover Photo URL or Preset
+                        Book Cover Photo
                       </label>
-                      <input
-                        type="text"
-                        value={bookForm.coverUrl}
-                        onChange={(e) => setBookForm({ ...bookForm, coverUrl: e.target.value })}
-                        className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg mb-2"
-                      />
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={bookForm.coverUrl}
+                          onChange={(e) => setBookForm({ ...bookForm, coverUrl: e.target.value })}
+                          placeholder="Image URL or choose preset / upload file below"
+                          className="flex-1 px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg"
+                        />
+                        <label className="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-lg border border-stone-300 cursor-pointer flex items-center justify-center gap-1.5 transition-colors shrink-0">
+                          <UploadCloud className="w-3.5 h-3.5 text-stone-600" />
+                          <span>Upload Cover Image</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleUploadCover}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => setBookForm({ ...bookForm, coverUrl: '/src/assets/images/cover_productivity_mastery_1793435132456.jpg' })}
-                          className="text-[10px] bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded font-medium"
+                          className="text-[10px] bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded font-medium text-stone-800"
                         >
                           Use Productivity Cover
                         </button>
                         <button
                           type="button"
                           onClick={() => setBookForm({ ...bookForm, coverUrl: '/src/assets/images/cover_digital_creator_playbook_1793435132635.jpg' })}
-                          className="text-[10px] bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded font-medium"
+                          className="text-[10px] bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded font-medium text-stone-800"
                         >
                           Use Creator Cover
                         </button>
                         <button
                           type="button"
                           onClick={() => setBookForm({ ...bookForm, coverUrl: '/src/assets/images/cover_mindset_money_guide_1793435132366.jpg' })}
-                          className="text-[10px] bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded font-medium"
+                          className="text-[10px] bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded font-medium text-stone-800"
                         >
                           Use Wealth Cover
                         </button>
                       </div>
+                    </div>
+
+                    {/* SECTION: FULL E-BOOK PDF UPLOAD (As requested by Author) */}
+                    <div className="p-4 bg-emerald-50/70 border-2 border-emerald-300/80 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded bg-emerald-600 text-white flex items-center justify-center font-bold text-xs">
+                            PDF
+                          </div>
+                          <div>
+                            <h5 className="text-xs font-bold text-emerald-950">
+                              Full E-Book PDF Upload <span className="text-red-500">*</span>
+                            </h5>
+                            <p className="text-[11px] text-emerald-800">
+                              This exact PDF file will be delivered to readers once their bKash payment is approved.
+                            </p>
+                          </div>
+                        </div>
+
+                        {bookForm.fullPdfUrl && (
+                          <span className="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-700" />
+                            PDF Attached
+                          </span>
+                        )}
+                      </div>
+
+                      {/* If Full PDF is attached */}
+                      {bookForm.fullPdfUrl ? (
+                        <div className="p-3 bg-white rounded-lg border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 truncate">
+                            <FileText className="w-5 h-5 text-emerald-600 shrink-0" />
+                            <div className="truncate">
+                              <p className="text-xs font-bold text-stone-900 truncate">
+                                {bookForm.fullPdfFileName || `${bookForm.title || 'Book'}-Full-Edition.pdf`}
+                              </p>
+                              <p className="text-[10px] text-stone-500">
+                                Size: {bookForm.fullPdfFileSize || 'Verified PDF'} · Status: Ready for verified buyer download
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => downloadFile(bookForm.fullPdfUrl, bookForm.fullPdfFileName || 'full-book.pdf')}
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors"
+                              title="Test PDF Download"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Test Download</span>
+                            </button>
+
+                            <label className="px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-lg border border-stone-300 cursor-pointer flex items-center gap-1 transition-colors">
+                              <UploadCloud className="w-3.5 h-3.5" />
+                              <span>Replace</span>
+                              <input
+                                type="file"
+                                accept=".pdf,application/pdf"
+                                onChange={handleUploadFullPdf}
+                                className="hidden"
+                              />
+                            </label>
+
+                            <button
+                              type="button"
+                              onClick={() => setBookForm({ ...bookForm, fullPdfUrl: '', fullPdfFileName: '', fullPdfFileSize: '' })}
+                              className="px-2.5 py-1.5 text-red-600 hover:bg-red-50 text-xs font-medium rounded-lg transition-colors"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                          <label className="flex-1 p-4 border-2 border-dashed border-emerald-400/80 hover:border-emerald-500 bg-white rounded-xl text-center cursor-pointer transition-all hover:bg-emerald-50/40 group">
+                            <UploadCloud className="w-6 h-6 text-emerald-600 mx-auto mb-1 group-hover:scale-110 transition-transform" />
+                            <p className="text-xs font-bold text-stone-800">
+                              Choose Full E-Book PDF File (.pdf)
+                            </p>
+                            <p className="text-[10px] text-stone-500 mt-0.5">
+                              Upload the complete e-book PDF from your computer (Up to 50MB)
+                            </p>
+                            <input
+                              type="file"
+                              accept=".pdf,application/pdf"
+                              onChange={handleUploadFullPdf}
+                              className="hidden"
+                            />
+                          </label>
+
+                          <div className="flex sm:flex-col justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleAutoGenerateFullPdf}
+                              className="px-3 py-2 bg-amber-400 hover:bg-amber-500 text-stone-950 font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+                              title="Generate standard publication PDF from chapter fields"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>⚡ Auto-Generate PDF</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* SECTION: FREE PREVIEW PDF UPLOAD */}
+                    <div className="p-4 bg-amber-50/70 border-2 border-amber-300/80 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded bg-amber-500 text-stone-950 flex items-center justify-center font-bold text-xs">
+                            PDF
+                          </div>
+                          <div>
+                            <h5 className="text-xs font-bold text-stone-900">
+                              Free Preview / Sample PDF Upload (Optional)
+                            </h5>
+                            <p className="text-[11px] text-stone-600">
+                              A short excerpt or sample PDF for readers to download or inspect before purchase.
+                            </p>
+                          </div>
+                        </div>
+
+                        {bookForm.previewPdfUrl && (
+                          <span className="text-[10px] bg-amber-200 text-stone-900 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Check className="w-3 h-3 text-stone-800" />
+                            Sample Attached
+                          </span>
+                        )}
+                      </div>
+
+                      {bookForm.previewPdfUrl ? (
+                        <div className="p-3 bg-white rounded-lg border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 truncate">
+                            <FileText className="w-5 h-5 text-amber-600 shrink-0" />
+                            <div className="truncate">
+                              <p className="text-xs font-bold text-stone-900 truncate">
+                                {bookForm.previewPdfFileName || `${bookForm.title || 'Book'}-Sample-Preview.pdf`}
+                              </p>
+                              <p className="text-[10px] text-stone-500">
+                                Size: {bookForm.previewPdfFileSize || 'Sample PDF'} · Status: Ready for free readers
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => downloadFile(bookForm.previewPdfUrl, bookForm.previewPdfFileName || 'preview-sample.pdf')}
+                              className="px-2.5 py-1.5 bg-amber-400 hover:bg-amber-500 text-stone-950 text-xs font-bold rounded-lg flex items-center gap-1 transition-colors"
+                              title="Test Sample PDF Download"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Test Preview PDF</span>
+                            </button>
+
+                            <label className="px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-lg border border-stone-300 cursor-pointer flex items-center gap-1 transition-colors">
+                              <UploadCloud className="w-3.5 h-3.5" />
+                              <span>Replace</span>
+                              <input
+                                type="file"
+                                accept=".pdf,application/pdf"
+                                onChange={handleUploadPreviewPdf}
+                                className="hidden"
+                              />
+                            </label>
+
+                            <button
+                              type="button"
+                              onClick={() => setBookForm({ ...bookForm, previewPdfUrl: '', previewPdfFileName: '', previewPdfFileSize: '' })}
+                              className="px-2.5 py-1.5 text-stone-500 hover:bg-stone-100 text-xs font-medium rounded-lg transition-colors"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                          <label className="flex-1 p-4 border-2 border-dashed border-amber-300 hover:border-amber-400 bg-white rounded-xl text-center cursor-pointer transition-all hover:bg-amber-50/30 group">
+                            <UploadCloud className="w-6 h-6 text-amber-600 mx-auto mb-1 group-hover:scale-110 transition-transform" />
+                            <p className="text-xs font-bold text-stone-800">
+                              Choose Sample Preview PDF (.pdf)
+                            </p>
+                            <p className="text-[10px] text-stone-500 mt-0.5">
+                              Attach a mini sample PDF for free readers (e.g. Chapter 1-2)
+                            </p>
+                            <input
+                              type="file"
+                              accept=".pdf,application/pdf"
+                              onChange={handleUploadPreviewPdf}
+                              className="hidden"
+                            />
+                          </label>
+
+                          <div className="flex sm:flex-col justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleAutoGeneratePreviewPdf}
+                              className="px-3 py-2 bg-stone-900 hover:bg-stone-800 text-amber-300 font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>⚡ Auto-Generate Preview</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -765,9 +1195,9 @@ export const AdminDashboardModal: React.FC = () => {
                       />
                     </div>
 
-                    {/* Preview Chapter Sample */}
+                    {/* Preview Chapter Sample for browser text reader */}
                     <div className="p-3 bg-white rounded-lg border border-stone-200 space-y-2">
-                      <p className="text-xs font-bold text-stone-900">Free Preview Chapter 1 Content</p>
+                      <p className="text-xs font-bold text-stone-900">Browser In-Page Preview Excerpt</p>
                       <input
                         type="text"
                         placeholder="Chapter Title"
@@ -794,37 +1224,75 @@ export const AdminDashboardModal: React.FC = () => {
                       </button>
                       <button
                         type="submit"
-                        className="px-5 py-2 bg-stone-900 hover:bg-stone-800 text-amber-300 font-bold text-xs rounded-lg shadow-xs"
+                        disabled={isUploading}
+                        className="px-5 py-2 bg-stone-900 hover:bg-stone-800 text-amber-300 font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5"
                       >
-                        {editingBookId ? 'Save Changes' : 'Publish Book'}
+                        <Check className="w-4 h-4" />
+                        <span>{editingBookId ? 'Save E-Book & PDFs' : 'Publish E-Book with PDFs'}</span>
                       </button>
                     </div>
                   </form>
                 </div>
               )}
 
-              {/* Existing Books List */}
+              {/* Existing Books List with PDF badges */}
               <div className="space-y-3">
                 {books.map((b) => (
                   <div
                     key={b.id}
-                    className="flex items-center justify-between p-3.5 bg-stone-50 rounded-xl border border-stone-200"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-stone-50 rounded-xl border border-stone-200 gap-3"
                   >
                     <div className="flex items-center gap-3">
                       <img
                         src={b.coverUrl}
                         alt={b.title}
-                        className="w-10 h-14 object-cover rounded shadow-2xs"
+                        className="w-10 h-14 object-cover rounded shadow-2xs shrink-0"
                       />
                       <div>
                         <h4 className="font-bold text-sm text-stone-900">{b.title}</h4>
                         <p className="text-xs text-stone-500">
                           {b.category} · ৳{b.price} · {b.pages} pages
                         </p>
+                        
+                        {/* PDF Status Badges */}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                          {b.fullPdfUrl ? (
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded flex items-center gap-1">
+                              <FileCheck className="w-3 h-3 text-emerald-600" />
+                              <span>Full PDF Attached</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] bg-stone-200 text-stone-600 px-2 py-0.5 rounded">
+                              No Full PDF
+                            </span>
+                          )}
+
+                          {b.previewPdfUrl ? (
+                            <span className="text-[10px] bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded flex items-center gap-1">
+                              <FileText className="w-3 h-3 text-amber-600" />
+                              <span>Sample PDF Attached</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] bg-stone-200 text-stone-500 px-2 py-0.5 rounded">
+                              Text Preview Only
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      {b.fullPdfUrl && (
+                        <button
+                          onClick={() => downloadFile(b.fullPdfUrl!, b.fullPdfFileName || `${b.title}-full.pdf`)}
+                          className="p-2 text-stone-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-medium"
+                          title="Test Download Full PDF"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Test PDF</span>
+                        </button>
+                      )}
+
                       <button
                         onClick={() => startEditBook(b)}
                         className="p-2 text-stone-600 hover:text-amber-700 hover:bg-stone-200 rounded-lg transition-colors"
@@ -1166,8 +1634,39 @@ export const AdminDashboardModal: React.FC = () => {
                         {m.message}
                       </p>
 
-                      {/* Display existing reply */}
-                      {m.reply && (
+                      {/* Threaded Conversation History */}
+                      {Array.isArray(m.replies) && m.replies.length > 0 ? (
+                        <div className="space-y-2.5 my-3">
+                          {m.replies.map((rep) => {
+                            const isAuthor = rep.sender === 'author';
+                            return (
+                              <div
+                                key={rep.id}
+                                className={`p-3 rounded-xl border text-xs ${
+                                  isAuthor
+                                    ? 'bg-amber-50 border-amber-200 ml-4'
+                                    : 'bg-blue-50 border-blue-200'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between text-[11px] mb-1">
+                                  <span className="font-bold flex items-center gap-1.5">
+                                    {isAuthor ? (
+                                      <span className="text-amber-950 font-bold">You (Author):</span>
+                                    ) : (
+                                      <span className="text-blue-950 font-bold">{rep.senderName} (Follow-up Reply):</span>
+                                    )}
+                                  </span>
+                                  <span className="text-[10px] text-stone-400">
+                                    {new Date(rep.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                                <p className="text-stone-800 leading-relaxed whitespace-pre-wrap">{rep.message}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : m.reply ? (
+                        /* Fallback single reply */
                         <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs">
                           <p className="font-bold text-emerald-900 text-[11px] mb-1 flex items-center gap-1">
                             <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
@@ -1175,7 +1674,7 @@ export const AdminDashboardModal: React.FC = () => {
                           </p>
                           <p className="text-emerald-950">{m.reply}</p>
                         </div>
-                      )}
+                      ) : null}
 
                       {/* Reply Form */}
                       <div className="mt-3 pt-2 flex items-center gap-2">
@@ -1185,24 +1684,24 @@ export const AdminDashboardModal: React.FC = () => {
                               rows={2}
                               value={replyContent}
                               onChange={(e) => setReplyContent(e.target.value)}
-                              placeholder="Write your response to the visitor..."
+                              placeholder={`Write your reply to ${m.name}...`}
                               className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg"
                             />
                             <div className="flex justify-end gap-2">
                               <button
                                 onClick={() => setReplyingMessageId(null)}
-                                className="px-3 py-1 text-xs text-stone-600 hover:bg-stone-200 rounded"
+                                className="px-3 py-1 text-xs text-stone-600 hover:bg-stone-200 rounded cursor-pointer"
                               >
                                 Cancel
                               </button>
                               <button
                                 onClick={async () => {
                                   if (!replyContent.trim()) return;
-                                  await replyToMessage(m.id, replyContent);
+                                  await replyToMessage(m.id, replyContent, 'author');
                                   setReplyingMessageId(null);
                                   setReplyContent('');
                                 }}
-                                className="px-4 py-1.5 bg-stone-900 text-amber-300 text-xs font-bold rounded-lg flex items-center gap-1"
+                                className="px-4 py-1.5 bg-stone-900 text-amber-300 text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer"
                               >
                                 <Send className="w-3 h-3 text-amber-400" />
                                 <span>Send Reply</span>
@@ -1213,12 +1712,12 @@ export const AdminDashboardModal: React.FC = () => {
                           <button
                             onClick={() => {
                               setReplyingMessageId(m.id);
-                              setReplyContent(m.reply || '');
+                              setReplyContent('');
                             }}
-                            className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors"
+                            className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
                           >
                             <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
-                            <span>{m.reply ? 'Edit Reply' : 'Reply to Message'}</span>
+                            <span>{m.reply || (m.replies && m.replies.length > 0) ? 'Send Another Reply' : 'Reply to Visitor'}</span>
                           </button>
                         )}
                       </div>

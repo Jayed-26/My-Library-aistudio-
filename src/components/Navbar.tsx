@@ -12,6 +12,7 @@ export const Navbar: React.FC = () => {
     toggleAdminMode,
     setAdminModalOpen,
     setAuthModalOpen,
+    setProfileModalOpen,
     requests,
     reviews,
     messages
@@ -76,26 +77,46 @@ export const Navbar: React.FC = () => {
             </button>
           )}
 
-          {/* User Sign-In with Google */}
+          {/* User Sign-In / User Profile */}
           {currentUser ? (
             <div className="flex items-center gap-2 pl-2 border-l border-stone-200">
-              <img
-                src={currentUser.avatar}
-                alt={currentUser.name}
-                className="w-8 h-8 rounded-full border border-amber-300 bg-white object-cover"
-                referrerPolicy="no-referrer"
-              />
-              <div className="hidden lg:flex flex-col text-left">
-                <span className="text-xs font-semibold text-stone-900 leading-tight truncate max-w-[110px]">
-                  {currentUser.name}
-                </span>
-                <span className="text-[10px] text-stone-500 truncate max-w-[110px]">
-                  {currentUser.email}
-                </span>
-              </div>
+              <button
+                onClick={() => setProfileModalOpen(true)}
+                className="flex items-center gap-2.5 p-1.5 hover:bg-stone-100 rounded-xl transition-all cursor-pointer group text-left"
+                title="Edit Profile (Name, Email & 1:1 Profile Picture)"
+              >
+                <div className="relative">
+                  <img
+                    src={currentUser.avatar}
+                    alt={currentUser.name}
+                    className="w-8 h-8 rounded-full border-2 border-amber-400 bg-white object-cover aspect-square shadow-2xs group-hover:ring-2 group-hover:ring-amber-300"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-amber-400 rounded-full border border-white flex items-center justify-center">
+                    <span className="w-1.5 h-1.5 bg-stone-900 rounded-full"></span>
+                  </div>
+                </div>
+                <div className="hidden lg:flex flex-col text-left">
+                  <span className="text-xs font-bold text-stone-900 leading-tight truncate max-w-[110px] group-hover:text-amber-700">
+                    {currentUser.name}
+                  </span>
+                  <span className="text-[10px] text-stone-500 truncate max-w-[110px]">
+                    {currentUser.email}
+                  </span>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setProfileModalOpen(true)}
+                className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-stone-700 bg-stone-100 hover:bg-amber-100 hover:text-amber-900 rounded-lg transition-colors border border-stone-200 cursor-pointer"
+                title="Edit Profile"
+              >
+                <span>Edit Profile</span>
+              </button>
+
               <button
                 onClick={logout}
-                className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-md transition-colors"
+                className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-md transition-colors cursor-pointer"
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />

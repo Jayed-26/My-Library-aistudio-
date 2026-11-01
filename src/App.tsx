@@ -11,6 +11,7 @@ import { FullBookModal } from './components/FullBookModal.tsx';
 import { DownloadRequestModal } from './components/DownloadRequestModal.tsx';
 import { ReviewSubmitModal } from './components/ReviewSubmitModal.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
+import { UserProfileModal } from './components/UserProfileModal.tsx';
 import { AdminDashboardModal } from './components/AdminDashboardModal.tsx';
 import { CheckCircle2, ShieldCheck } from 'lucide-react';
 
@@ -65,6 +66,7 @@ const AppContent: React.FC = () => {
       <DownloadRequestModal />
       <ReviewSubmitModal />
       <AuthModal />
+      <UserProfileModal />
       <AdminDashboardModal />
 
       {/* Global Toast Notification */}

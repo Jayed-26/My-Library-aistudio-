@@ -13,24 +13,34 @@ export const AuthModal: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const email = emailInput.trim();
+    const name = nameInput.trim();
+
     if (!email) {
-      setErrorMsg('Enter an email address');
+      setErrorMsg('Email address is required.');
       return;
     }
     if (!email.includes('@')) {
-      setErrorMsg('Enter a valid email address (e.g., name@gmail.com)');
+      setErrorMsg('Please enter a valid email address (e.g., name@gmail.com).');
+      return;
+    }
+    if (!name) {
+      setErrorMsg('User Name is required.');
+      return;
+    }
+    if (name.length < 2) {
+      setErrorMsg('User Name must be at least 2 characters.');
       return;
     }
 
     setErrorMsg('');
-    loginWithGoogle(email, nameInput.trim());
+    loginWithGoogle(email, name);
     setEmailInput('');
     setNameInput('');
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-[400px] bg-white rounded-3xl shadow-2xl overflow-hidden border border-stone-200 p-8">
+      <div className="relative w-full max-w-[420px] bg-white rounded-3xl shadow-2xl overflow-hidden border border-stone-200 p-8">
         
         {/* Close Button */}
         <button
@@ -57,15 +67,16 @@ export const AuthModal: React.FC = () => {
         <h3 className="text-2xl font-normal text-stone-900 tracking-tight mb-1 font-display">
           Sign in with Google
         </h3>
-        <p className="text-sm text-stone-600 mb-6 font-normal">
-          to continue to Jayed Mahmud's E-Book Store
+        <p className="text-xs text-stone-600 mb-6 font-normal">
+          Both Email and User Name are required to personalize your reader experience.
         </p>
 
-        {/* Google Email Form */}
+        {/* Google Email & User Name Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-              Email or phone
+            <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center justify-between">
+              <span>Email Address</span>
+              <span className="text-amber-600 font-bold text-[10px] uppercase">Required</span>
             </label>
             <input
               type="email"
@@ -76,28 +87,36 @@ export const AuthModal: React.FC = () => {
                 setEmailInput(e.target.value);
                 if (errorMsg) setErrorMsg('');
               }}
-              placeholder="Enter your Google email"
+              placeholder="e.g. reader@gmail.com"
               className="w-full px-4 py-3 text-sm bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 text-stone-900 transition-all placeholder:text-stone-400"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-              Your Name <span className="text-stone-400 font-normal">(optional)</span>
+            <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center justify-between">
+              <span>User Name</span>
+              <span className="text-amber-600 font-bold text-[10px] uppercase">Required</span>
             </label>
             <input
               type="text"
+              required
               value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              placeholder="Enter your name"
+              onChange={(e) => {
+                setNameInput(e.target.value);
+                if (errorMsg) setErrorMsg('');
+              }}
+              placeholder="e.g. Tanvir Hasan"
               className="w-full px-4 py-3 text-sm bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 text-stone-900 transition-all placeholder:text-stone-400"
             />
+            <p className="text-[10px] text-stone-400 mt-1">
+              This name will appear on your download requests, reviews, and messages.
+            </p>
           </div>
 
           {errorMsg && (
-            <p className="text-xs text-red-600 font-medium">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600 font-medium">
               {errorMsg}
-            </p>
+            </div>
           )}
 
           <div className="pt-2">

@@ -14,8 +14,10 @@ import {
   Trash2,
   Sparkles,
   Lock,
-  FileText
+  FileText,
+  FileCheck
 } from 'lucide-react';
+import { downloadFile } from '../utils/pdfHelper.ts';
 
 export const EbooksSection: React.FC = () => {
   const {
@@ -28,7 +30,8 @@ export const EbooksSection: React.FC = () => {
     setActiveRequestBook,
     setAuthModalOpen,
     setAdminModalOpen,
-    deleteBook
+    deleteBook,
+    showToast
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -282,7 +285,13 @@ export const EbooksSection: React.FC = () => {
                         {/* Full Download / Access Button */}
                         {userRequest?.status === 'approved' ? (
                           <button
-                            onClick={() => setActiveFullBook(book)}
+                            onClick={() => {
+                              setActiveFullBook(book);
+                              if (book.fullPdfUrl) {
+                                downloadFile(book.fullPdfUrl, book.fullPdfFileName || `${book.title}-Full-Edition.pdf`);
+                                showToast(`Downloading official full PDF of "${book.title}"...`);
+                              }
+                            }}
                             className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5"
                           >
                             <Download className="w-3.5 h-3.5" />

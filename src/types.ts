@@ -18,7 +18,11 @@ export interface Ebook {
   price: number; // In BDT (৳)
   coverUrl: string;
   previewPdfUrl?: string;
+  previewPdfFileName?: string;
+  previewPdfFileSize?: string;
   fullPdfUrl?: string;
+  fullPdfFileName?: string;
+  fullPdfFileSize?: string;
   previewContent: {
     chapters: {
       number: string;
@@ -82,13 +86,25 @@ export interface ContactInfo {
   };
 }
 
+export interface QuickMessageReply {
+  id: string;
+  sender: 'author' | 'user';
+  senderName: string;
+  senderAvatar?: string;
+  message: string;
+  createdAt: string;
+}
+
 export interface QuickMessage {
   id: string;
+  userId?: string;
   name: string;
   email: string;
+  userAvatar?: string;
   message: string;
   reply?: string;
   replyAt?: string;
+  replies?: QuickMessageReply[];
   createdAt: string;
   status: 'unread' | 'replied';
 }
@@ -100,3 +116,4 @@ export interface AuthUser {
   avatar: string;
   isAdmin: boolean;
 }
+
